@@ -22,12 +22,13 @@ function CameraCapture({ onCapture, busy }) {
   const [active, setActive] = useState(false)
   const [snapshot, setSnapshot] = useState('')
   const [cameraError, setCameraError] = useState('')
+  const [cameraFacing, setCameraFacing] = useState('user')
 
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
   }, [])
 
-  async function startCamera() {
+  async function startCamera(facingMode = cameraFacing) {
     setCameraError('')
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError('Camera access is unavailable. Open this app on localhost in a supported browser.')
@@ -37,7 +38,7 @@ function CameraCapture({ onCapture, busy }) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
       })
       streamRef.current = stream
       videoRef.current.srcObject = stream
@@ -51,6 +52,22 @@ function CameraCapture({ onCapture, busy }) {
           : 'No camera was found. Connect a camera and try again.',
       )
     }
+  }
+
+  function switchCamera() {
+    const nextFacing = cameraFacing === 'user' ? 'environment' : 'user'
+    setCameraFacing(nextFacing)
+
+    if (!active) {
+      return
+    }
+
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    if (videoRef.current) videoRef.current.srcObject = null
+    setSnapshot('')
+    onCapture('')
+    startCamera(nextFacing)
   }
 
   function stopCamera() {
@@ -101,7 +118,7 @@ function CameraCapture({ onCapture, busy }) {
       </div>
       <div className="camera-controls">
         {!active ? (
-          <button className="button-primary" type="button" onClick={startCamera}>Start camera</button>
+          <button className="button-primary" type="button" onClick={() => startCamera()}>Start camera</button>
         ) : (
           <>
             {snapshot ? (
@@ -109,6 +126,9 @@ function CameraCapture({ onCapture, busy }) {
             ) : (
               <button className="button-primary" type="button" onClick={captureFrame}>Capture frame</button>
             )}
+            <button className="button-quiet" type="button" onClick={switchCamera}>
+              {cameraFacing === 'user' ? 'Use rear camera' : 'Use front camera'}
+            </button>
             <button className="button-quiet" type="button" onClick={stopCamera}>Stop camera</button>
           </>
         )}
